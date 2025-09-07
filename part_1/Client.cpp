@@ -1,4 +1,9 @@
 
+// 1 обращения к Client::player, потенциальная ошибка player может быть не инициализирован.
+// 2 обращения к переменным членам класса через this->, это не является обязательным но может быть приемлемо если так приято в кодстайле. вместе с тем в методе Client::send обращение напрямую. 
+// 3 Client::login возможна передача net_id и net_type в конструктор LoginData, если такой конструктор есть.
+// 4 получения данных из server::Packet с помощью магических чисел.
+
 #include "Client.h"
 
 #include "Log.h"
@@ -72,18 +77,22 @@ void Client::params_set(const server::Packet &packet) const
 
 void Client::buy(const server::Packet &packet)
 {
-	uint32_t item_id = packet.I(0);
+	// здесь мы должны гарантировать что player инициализирован, так же player->balance, player->inventory. проверять это внутри функции не рекомендуется из-за потери производительности на "горячих" участках.
+	// ***
+	// избавляемся от магических переменных, лучше это сделать для всего класса например вынести в namespace или отдельный заголовочный файл.
+	constexpr int ITEM_ID_IDX = 0;
+	uint32_t item_id = packet.I(ITEM_ID_IDX);
 
-	if (!this->player->balance->can_afford(item_id))
-	{
-		logger->warning("Client {} can't afford item {}", this->player->id, item_id);
+	// избавляемся от обращений this в соответствии с кодстайлом.
+	if (!player->balance->can_afford(item_id)) {
+		logger->warning("Client {} can't afford item {}", player->id, item_id);
 		return;
 	}
 
-	this->player->balance->deduct(item_id);
-	this->player->inventory->add(item_id);
+	player->balance->deduct(item_id);
+	player->inventory->add(item_id);
 
-	logger->info("Client {} bought item {}", this->player->id, item_id);
+	logger->info("Client {} bought item {}", player->id, item_id);
 }
 
 void Client::login(const client::Packet *packet)
